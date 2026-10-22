@@ -1,0 +1,4 @@
+[
+  { "id": "programacao-ti", "nome": "Programação / TI", "icone": "💻", "cor": "#4f8cff", "descricao": "Código, Git, Traccar, redes e ferramentas" },
+  { "id": "estudos", "nome": "Estudos", "icone": "📚", "cor": "#f5a524", "descricao": "Matérias e assuntos que estou aprendendo" }
+]
