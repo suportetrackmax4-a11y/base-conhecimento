@@ -141,6 +141,9 @@ function aplicarPendentes() {
     if (i >= 0) BASE.notas[i] = p.nota; else BASE.notas.unshift(p.nota);
     if (!BASE.areas.some(a => a.id === p.nota.area)) BASE.areas.push(p.area);
   }
+  const excluidas = guardado.ler('bc-excluidas', []).filter(x => x.salvoEm > geradoEm);
+  guardado.gravar('bc-excluidas', excluidas);
+  BASE.notas = BASE.notas.filter(n => !excluidas.some(x => x.area === n.area && x.slug === n.slug));
 }
 aplicarPendentes();
 
@@ -433,6 +436,7 @@ function telaEditor(areaId, slug) {
       <div class="acoes" style="margin:0">
         <button class="btn primario" id="salvar">💾 Salvar</button>
         <a class="btn" href="${editando ? `#/nota/${editando.area}/${editando.slug}` : '#/'}">Cancelar</a>
+        ${editando ? '<button class="btn" id="excluir" style="margin-left:auto">🗑️ Excluir nota</button>' : ''}
       </div>
     </section>`;
 
@@ -446,6 +450,27 @@ function telaEditor(areaId, slug) {
   });
 
   const msg = (tipo, t) => $('msg').innerHTML = `<div class="aviso ${tipo}">${t}</div>`;
+
+  // Excluir pede dois cliques: o primeiro só arma o botão
+  if (editando) $('excluir').onclick = async () => {
+    const btn = $('excluir');
+    if (!btn.dataset.armado) { btn.dataset.armado = 1; btn.textContent = '⚠️ Clique de novo para excluir'; return; }
+    btn.disabled = true;
+    msg('info', 'Excluindo…');
+    try {
+      const caminho = `notas/${editando.area}/${editando.slug}.md`;
+      const { sha } = await lerArquivo(caminho);
+      if (sha) await github(`/contents/${caminho}`, { method: 'DELETE', body: JSON.stringify({ message: `Exclui nota: ${editando.titulo}`, sha, branch: 'main' }) });
+      guardado.gravar('bc-pendentes', guardado.ler('bc-pendentes', []).filter(p => !(p.nota.area === editando.area && p.nota.slug === editando.slug)));
+      guardado.gravar('bc-excluidas', [...guardado.ler('bc-excluidas', []), { salvoEm: new Date().toISOString(), area: editando.area, slug: editando.slug }]);
+      aplicarPendentes();
+      location.hash = `#/area/${editando.area}`;
+    } catch (e) {
+      msg('erro', esc(e.message));
+      btn.disabled = false;
+    }
+  };
+
   $('salvar').onclick = async () => {
     const titulo = $('titulo').value.trim();
     const conteudo = $('texto').value.trim();
