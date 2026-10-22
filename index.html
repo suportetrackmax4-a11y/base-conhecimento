@@ -80,7 +80,24 @@ h2 { font-size: 1.1rem; margin: 28px 0 12px; }
 .trilha { font-size: .9rem; color: var(--suave); margin: 4px 0 10px; }
 .acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
 
+/* Editor */
+.form { display: grid; gap: 14px; }
+.form label { display: grid; gap: 6px; font-weight: 600; font-size: .92rem; }
+.form input, .form select, .form textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--borda); background: var(--bg); color: var(--texto); font: inherit; font-weight: 400; }
+.form textarea { min-height: 320px; font-family: ui-monospace, Consolas, monospace; font-size: .92rem; resize: vertical; }
+.form .dica { font-weight: 400; color: var(--suave); font-size: .82rem; }
+.linha2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.abas { display: flex; gap: 6px; }
+.abas .btn.ativa { border-color: var(--destaque); color: var(--destaque); }
+.aviso { padding: 10px 14px; border-radius: 10px; font-size: .92rem; }
+.aviso.ok { background: color-mix(in srgb, #22a06b 15%, transparent); }
+.aviso.erro { background: color-mix(in srgb, #e5484d 15%, transparent); }
+.aviso.info { background: color-mix(in srgb, var(--destaque) 12%, transparent); }
+.passos { margin: 0; padding-left: 20px; }
+.passos li { margin: 4px 0; }
+
 @media (max-width: 640px) {
+  .linha2 { grid-template-columns: 1fr; }
   .hero { grid-template-columns: 1fr; }
   .hero svg { max-width: 220px; margin: 0 auto; }
   .hero .info { text-align: center; }
@@ -93,6 +110,8 @@ h2 { font-size: 1.1rem; margin: 28px 0 12px; }
   <header>
     <a class="logo" href="#/">🧠 Base de Conhecimento</a>
     <input id="busca" type="search" placeholder="Buscar em tudo… (título, tag, conteúdo)" autocomplete="off">
+    <a class="btn primario" href="#/nova">+ Nova nota</a>
+    <a class="btn" href="#/config" title="Conectar ao GitHub">⚙️</a>
   </header>
   <main id="app"></main>
 </div>
@@ -105,6 +124,25 @@ const REPO = 'suportetrackmax4-a11y/base-conhecimento';
 const BASE = window.BASE || { areas: [], notas: [] };
 const app = document.getElementById('app');
 const busca = document.getElementById('busca');
+
+// localStorage pode falhar (aba anônima, dados bloqueados): nunca deixar isso quebrar a página
+const guardado = {
+  ler(chave, padrao) { try { const v = localStorage.getItem(chave); return v === null ? padrao : JSON.parse(v); } catch { return padrao; } },
+  gravar(chave, valor) { try { localStorage.setItem(chave, JSON.stringify(valor)); } catch {} },
+};
+
+// Notas salvas pelo site aparecem na hora, mesmo antes do GitHub regenerar o notas.js (~1 min)
+function aplicarPendentes() {
+  const geradoEm = BASE.geradoEm || '';
+  const pendentes = guardado.ler('bc-pendentes', []).filter(p => p.salvoEm > geradoEm);
+  guardado.gravar('bc-pendentes', pendentes);
+  for (const p of pendentes) {
+    const i = BASE.notas.findIndex(n => n.area === p.nota.area && n.slug === p.nota.slug);
+    if (i >= 0) BASE.notas[i] = p.nota; else BASE.notas.unshift(p.nota);
+    if (!BASE.areas.some(a => a.id === p.nota.area)) BASE.areas.push(p.area);
+  }
+}
+aplicarPendentes();
 
 const NIVEIS = [
   { min: 0,   nome: 'Cabeça vazia' },
@@ -186,11 +224,7 @@ function listaNotas(notas) {
   return notas.length ? `<ul class="lista">${notas.map(linhaNota).join('')}</ul>` : '<div class="vazio">Nada por aqui ainda.</div>';
 }
 
-function linkNovaNota(areaId) {
-  const hoje = new Date().toISOString().slice(0, 10);
-  const modelo = `---\ntitulo: \ntags: \ndata: ${hoje}\n---\n\n# \n\n`;
-  return `https://github.com/${REPO}/new/main/notas/${areaId}?filename=nova-nota.md&value=${encodeURIComponent(modelo)}`;
-}
+const linkNovaNota = areaId => `#/nova/${areaId}`;
 
 function telaInicio() {
   const total = BASE.notas.length;
@@ -245,7 +279,7 @@ function telaArea(id) {
       <b style="font-size:1.3rem">${esc(a.nome)}</b>
       <small>${notas.length} ${notas.length === 1 ? 'nota' : 'notas'}${a.descricao ? ' · ' + esc(a.descricao) : ''}</small>
     </div>
-    <div class="acoes"><a class="btn primario" href="${linkNovaNota(id)}" target="_blank" rel="noopener">+ Nova nota nesta área</a></div>
+    <div class="acoes"><a class="btn primario" href="${linkNovaNota(id)}">+ Nova nota nesta área</a></div>
     <h2>Notas</h2>
     <div class="card">${listaNotas(notas)}</div>`;
 }
@@ -263,7 +297,7 @@ function telaNota(area, slug) {
       <div class="meta" style="margin-top:16px">${n.data ? 'Escrita em ' + dataBR(n.data) + ' · ' : ''}${n.tags.map(t => `<span class="tag" data-tag="${esc(t)}">#${esc(t)}</span>`).join('')}</div>
     </article>
     <div class="acoes">
-      <a class="btn" href="https://github.com/${REPO}/edit/main/notas/${a.id}/${n.slug}.md" target="_blank" rel="noopener">✏️ Editar no GitHub</a>
+      <a class="btn" href="#/editar/${a.id}/${n.slug}">✏️ Editar</a>
       <a class="btn" href="#/area/${a.id}">← Mais de ${esc(a.nome)}</a>
     </div>`;
   window.scrollTo(0, 0);
@@ -278,10 +312,193 @@ function telaBusca(termo) {
     <div class="card">${listaNotas(achou)}</div>`;
 }
 
+// ---------- Gravação no GitHub ----------
+
+const slugDe = s => semAcento(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'nota';
+const base64 = texto => { const b = new TextEncoder().encode(texto); let s = ''; b.forEach(x => s += String.fromCharCode(x)); return btoa(s); };
+
+async function github(caminho, opcoes = {}) {
+  const token = guardado.ler('bc-token', '');
+  const r = await fetch(`https://api.github.com/repos/${REPO}${caminho}`, {
+    ...opcoes,
+    headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}`, ...(opcoes.headers || {}) },
+  });
+  if (r.status === 401) throw new Error('Token inválido ou expirado. Gere outro em ⚙️.');
+  if (r.status === 403 || r.status === 404) throw new Error('O token não tem permissão de escrita neste repositório. Confira em ⚙️.');
+  if (!r.ok) throw new Error(`GitHub respondeu ${r.status}.`);
+  return r;
+}
+
+// Devolve { sha, texto } do arquivo no repositório, ou {} se ele ainda não existe
+async function lerArquivo(caminho) {
+  const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${caminho}?ref=main&t=${Date.now()}`, {
+    headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${guardado.ler('bc-token', '')}` },
+  });
+  if (!r.ok) return {};
+  const j = await r.json();
+  const bytes = Uint8Array.from(atob(j.content.replace(/\n/g, '')), c => c.charCodeAt(0));
+  return { sha: j.sha, texto: new TextDecoder().decode(bytes) };
+}
+
+async function salvarArquivo(caminho, texto, mensagem) {
+  // Para editar um arquivo existente o GitHub exige o "sha" da versão atual
+  const { sha } = await lerArquivo(caminho);
+  await github(`/contents/${caminho}`, {
+    method: 'PUT',
+    body: JSON.stringify({ message: mensagem, content: base64(texto), branch: 'main', ...(sha ? { sha } : {}) }),
+  });
+}
+
+function telaConfig() {
+  const temToken = !!guardado.ler('bc-token', '');
+  app.innerHTML = `
+    <div class="trilha"><a href="#/">Início</a> › Conectar ao GitHub</div>
+    <section class="card form">
+      <h2 style="margin:0">⚙️ Conectar ao GitHub</h2>
+      <div class="aviso ${temToken ? 'ok' : 'info'}">${temToken ? '✅ Este navegador já está conectado. Pode criar e editar notas.' : 'Faça isso <b>uma vez em cada navegador</b> (PC, celular…). Depois é só escrever e salvar.'}</div>
+      <ol class="passos">
+        <li>Abra <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → Fine-grained token</a> (logado como <b>suportetrackmax4-a11y</b>).</li>
+        <li><b>Token name:</b> base-conhecimento · <b>Expiration:</b> o que preferir (ex.: 1 ano).</li>
+        <li><b>Repository access:</b> <i>Only select repositories</i> → <b>base-conhecimento</b>.</li>
+        <li><b>Permissions → Repository → Contents:</b> <i>Read and write</i>.</li>
+        <li>Clique em <b>Generate token</b>, copie e cole abaixo.</li>
+      </ol>
+      <label>Token
+        <input id="token" type="password" placeholder="github_pat_…" autocomplete="off">
+        <span class="dica">Fica guardado só neste navegador. Não compartilhe com ninguém.</span>
+      </label>
+      <div id="msg"></div>
+      <div class="acoes" style="margin:0">
+        <button class="btn primario" id="salvarToken">Conectar</button>
+        ${temToken ? '<button class="btn" id="sair">Desconectar este navegador</button>' : ''}
+      </div>
+    </section>`;
+
+  const msg = (tipo, t) => document.getElementById('msg').innerHTML = `<div class="aviso ${tipo}">${t}</div>`;
+  document.getElementById('salvarToken').onclick = async () => {
+    const token = document.getElementById('token').value.trim();
+    if (!token) return msg('erro', 'Cole o token primeiro.');
+    guardado.gravar('bc-token', token);
+    try {
+      const r = await github('');
+      const repo = await r.json();
+      if (!repo.permissions || !repo.permissions.push) throw new Error('O token não tem permissão de escrita (Contents: Read and write).');
+      msg('ok', '✅ Conectado! Agora é só criar notas.');
+      setTimeout(() => location.hash = '#/nova', 900);
+    } catch (e) {
+      guardado.gravar('bc-token', '');
+      msg('erro', esc(e.message));
+    }
+  };
+  const sair = document.getElementById('sair');
+  if (sair) sair.onclick = () => { guardado.gravar('bc-token', ''); telaConfig(); };
+}
+
+function telaEditor(areaId, slug) {
+  if (!guardado.ler('bc-token', '')) {
+    app.innerHTML = `<div class="card"><div class="aviso info">Para salvar notas pelo site, conecte este navegador ao GitHub primeiro (só uma vez).</div>
+      <div class="acoes"><a class="btn primario" href="#/config">⚙️ Conectar agora</a></div></div>`;
+    return;
+  }
+  const editando = slug ? BASE.notas.find(n => n.area === areaId && n.slug === slug) : null;
+  if (slug && !editando) { app.innerHTML = '<div class="card vazio">Nota não encontrada.</div>'; return; }
+  const areaInicial = areaId || (BASE.areas[0] && BASE.areas[0].id);
+
+  app.innerHTML = `
+    <div class="trilha"><a href="#/">Início</a> › ${editando ? 'Editar nota' : 'Nova nota'}</div>
+    <section class="card form">
+      <div class="linha2">
+        <label>Área
+          <select id="area" ${editando ? 'disabled' : ''}>
+            ${BASE.areas.map(a => `<option value="${a.id}" ${a.id === areaInicial ? 'selected' : ''}>${a.icone} ${esc(a.nome)}</option>`).join('')}
+            <option value="__nova">➕ Criar área nova…</option>
+          </select>
+        </label>
+        <label id="novaAreaBox" hidden>Nome da área nova
+          <input id="novaArea" placeholder="Ex.: Rastreadores">
+        </label>
+      </div>
+      <label>Título
+        <input id="titulo" value="${editando ? esc(editando.titulo) : ''}" placeholder="Ex.: Como ler o IMEI pelo comando AT">
+      </label>
+      <label>Tags <span class="dica">separadas por vírgula</span>
+        <input id="tags" value="${editando ? esc(editando.tags.join(', ')) : ''}" placeholder="Ex.: rastreador, at, modem">
+      </label>
+      <div class="abas"><button class="btn ativa" data-aba="escrever">✍️ Escrever</button><button class="btn" data-aba="ver">👁️ Ver como fica</button></div>
+      <label id="boxTexto">Conteúdo <span class="dica">aceita Markdown: **negrito**, # título, - lista, \`código\`, tabelas…</span>
+        <textarea id="texto" placeholder="Escreva com suas palavras…">${editando ? esc(editando.conteudo) : ''}</textarea>
+      </label>
+      <div id="previa" class="nota" hidden></div>
+      <div id="msg"></div>
+      <div class="acoes" style="margin:0">
+        <button class="btn primario" id="salvar">💾 Salvar</button>
+        <a class="btn" href="${editando ? `#/nota/${editando.area}/${editando.slug}` : '#/'}">Cancelar</a>
+      </div>
+    </section>`;
+
+  const $ = id => document.getElementById(id);
+  $('area').onchange = () => { $('novaAreaBox').hidden = $('area').value !== '__nova'; };
+  app.querySelectorAll('[data-aba]').forEach(b => b.onclick = () => {
+    const ver = b.dataset.aba === 'ver';
+    app.querySelectorAll('[data-aba]').forEach(x => x.classList.toggle('ativa', x === b));
+    $('boxTexto').hidden = ver; $('previa').hidden = !ver;
+    if (ver) $('previa').innerHTML = DOMPurify.sanitize(marked.parse($('texto').value || '*Nada escrito ainda.*'));
+  });
+
+  const msg = (tipo, t) => $('msg').innerHTML = `<div class="aviso ${tipo}">${t}</div>`;
+  $('salvar').onclick = async () => {
+    const titulo = $('titulo').value.trim();
+    const conteudo = $('texto').value.trim();
+    if (!titulo) return msg('erro', 'Dê um título para a nota.');
+    if (!conteudo) return msg('erro', 'Escreva alguma coisa no conteúdo.');
+
+    let area;
+    if (editando) area = areaDe(editando.area);
+    else if ($('area').value === '__nova') {
+      const nome = $('novaArea').value.trim();
+      if (!nome) return msg('erro', 'Digite o nome da área nova.');
+      area = { id: slugDe(nome), nome, icone: '🧠', cor: '#9b7bff', descricao: '' };
+    } else area = areaDe($('area').value);
+
+    let novoSlug = editando ? editando.slug : slugDe(titulo);
+    if (!editando) { const b = novoSlug; let i = 2; while (BASE.notas.some(n => n.area === area.id && n.slug === novoSlug)) novoSlug = `${b}-${i++}`; }
+
+    const tags = $('tags').value.split(',').map(t => t.trim()).filter(Boolean);
+    const data = editando && editando.data ? editando.data : new Date().toISOString().slice(0, 10);
+    const arquivo = `---\ntitulo: ${titulo}\ntags: ${tags.join(', ')}\ndata: ${data}\n---\n\n${conteudo}\n`;
+
+    $('salvar').disabled = true;
+    msg('info', 'Salvando…');
+    try {
+      if (!BASE.areas.some(a => a.id === area.id)) {
+        const { texto } = await lerArquivo('areas.json');
+        const areas = texto ? JSON.parse(texto) : [];
+        if (!areas.some(a => a.id === area.id)) {
+          areas.push(area);
+          await salvarArquivo('areas.json', JSON.stringify(areas, null, 2) + '\n', `Nova área: ${area.nome}`);
+        }
+      }
+      await salvarArquivo(`notas/${area.id}/${novoSlug}.md`, arquivo, `${editando ? 'Edita' : 'Nova'} nota: ${titulo}`);
+      const nota = { area: area.id, slug: novoSlug, titulo, tags, data, conteudo };
+      const pendentes = guardado.ler('bc-pendentes', []).filter(p => !(p.nota.area === area.id && p.nota.slug === novoSlug));
+      pendentes.push({ salvoEm: new Date().toISOString(), nota, area });
+      guardado.gravar('bc-pendentes', pendentes);
+      aplicarPendentes();
+      location.hash = `#/nota/${area.id}/${novoSlug}`;
+    } catch (e) {
+      msg('erro', esc(e.message));
+      $('salvar').disabled = false;
+    }
+  };
+}
+
 function rota() {
   if (busca.value.trim()) return telaBusca(busca.value);
   const [, tipo, a, b] = location.hash.split('/');
-  if (tipo === 'area' && a) telaArea(decodeURIComponent(a));
+  if (tipo === 'config') telaConfig();
+  else if (tipo === 'nova') telaEditor(a && decodeURIComponent(a));
+  else if (tipo === 'editar' && a && b) telaEditor(decodeURIComponent(a), decodeURIComponent(b));
+  else if (tipo === 'area' && a) telaArea(decodeURIComponent(a));
   else if (tipo === 'nota' && a && b) telaNota(decodeURIComponent(a), decodeURIComponent(b));
   else telaInicio();
 }

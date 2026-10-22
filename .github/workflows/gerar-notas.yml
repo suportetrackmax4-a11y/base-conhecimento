@@ -1,4 +1,4 @@
-# Quando uma nota é criada/editada (ex.: pelo site do GitHub), regenera o notas.js
+# Quando uma nota é criada/editada (pelo site ou pelo GitHub), regenera o notas.js
 name: Gerar notas.js
 
 on:
@@ -9,14 +9,21 @@ on:
 permissions:
   contents: write
 
+# Uma de cada vez: duas notas salvas em seguida não brigam no push
+concurrency:
+  group: gerar-notas
+  cancel-in-progress: false
+
 jobs:
   gerar:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: node build.js
+        with:
+          ref: main
+      - run: git pull --rebase origin main && node build.js
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add notas.js
-          git diff --cached --quiet || (git commit -m "Atualiza notas.js" && git push)
+          git diff --cached --quiet || (git commit -m "Atualiza notas.js" && git pull --rebase origin main && git push)
