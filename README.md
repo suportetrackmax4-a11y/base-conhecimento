@@ -6,7 +6,7 @@ Minhas anotações de tudo, separadas por área. Quanto mais notas, maior fica a
 
 **Pelo site:** entre na área e clique em **+ Nova nota nesta área**. O GitHub abre já com o modelo; troque o nome do arquivo, escreva e clique em *Commit changes*. Em ~1 minuto o site atualiza sozinho.
 
-**Pelo computador:** crie um `.md` em `notas/<área>/` (use `notas/_modelo.md` como base) e faça `git add . && git commit -m "nova nota" && git push`.
+**Pelo computador:** rode `git pull` antes (o GitHub atualiza o `notas.js` sozinho), crie um `.md` em `notas/<área>/` (use `notas/_modelo.md` como base) e faça `git add . && git commit -m "nova nota" && git push`.
 
 Cabeçalho de cada nota:
 
